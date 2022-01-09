@@ -1,10 +1,4 @@
-#include <stdio.h>
-
-__declspec(dllimport) void *__cdecl xlcl_start(void);
-__declspec(dllimport) void *__cdecl xlcl_add_node(void *vp,int additional_data);
-__declspec(dllimport) int   __cdecl xlcl_pop(void *vp);
-__declspec(dllimport) void  __cdecl xlcl_all_show(void *vp);
-__declspec(dllimport) void *__cdecl xlcl_end(void *vp);
+#include "xlcl.h"
 
 int main(void)
 {
@@ -23,6 +17,7 @@ int main(void)
     xlcl_all_show(Root);
     xlcl_pop(Root);
     xlcl_all_show(Root);
+    
     Root = xlcl_end(Root); 
 
     return 0;
