@@ -1,0 +1,1 @@
+gcc -o xlcl.dll -s -shared xlcl.c
