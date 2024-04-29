@@ -13,16 +13,26 @@ typedef struct XorLinkedCircularList_Root_T
 {
     XorLinkedCircularList *Head;
     XorLinkedCircularList *Tail;
+    size_t AllocationSize;
 }XorLinkedCircularList_Root;
 
+
+/*----------------------------------*/
+/* 引数二つのポインタをXORして返す関数 */
+/*----------------------------------*/
 static void *AddrXor(void *p,void *q)
 {
     return (void *)(((unsigned int)p) ^ ((unsigned int)q));
 }
 
+
+/*----------------------------------*/
+/*XorLinkedCircularListの使用開始関数*/
+/*----------------------------------*/
 __declspec(dllexport) void *__cdecl xlcl_start(void)
 {
     XorLinkedCircularList_Root *xlclr_addr = malloc(sizeof(XorLinkedCircularList_Root));
+    xlclr_addr->AllocationSize = sizeof(XorLinkedCircularList_Root);
     if( xlclr_addr != NULL )
     {
         xlclr_addr->Head = NULL;
@@ -31,13 +41,20 @@ __declspec(dllexport) void *__cdecl xlcl_start(void)
     return xlclr_addr;
 }
 
+
+
+/*----------------------------------*/
+/*XLCLにノードを追加する関数          */
+/*----------------------------------*/
 __declspec(dllexport) void *__cdecl xlcl_add_node(void *vp,int additional_data)
 {
     XorLinkedCircularList *obtained_addr = NULL;
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
+
     if( Root_addr != NULL )
     {
         obtained_addr = malloc(sizeof(XorLinkedCircularList));
+        Root_addr->AllocationSize += sizeof(XorLinkedCircularList);
         if(obtained_addr != NULL)
         {
             /*確保した領域にデータを格納*/
@@ -87,6 +104,11 @@ __declspec(dllexport) void *__cdecl xlcl_add_node(void *vp,int additional_data)
     return obtained_addr;
 }
 
+
+
+/*----------------------------------*/
+/*XLCLから先頭のデータを取り出す関数   */
+/*----------------------------------*/
 __declspec(dllexport) int __cdecl xlcl_pop(void *vp)
 {
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
@@ -109,6 +131,7 @@ __declspec(dllexport) int __cdecl xlcl_pop(void *vp)
                 Root_addr->Tail->prev_xor_next = AddrXor(tail_prev_prev,Root_addr->Head);
                 Root_addr->Head->prev_xor_next = AddrXor(Root_addr->Tail,head_next);
                 free(free_addr);
+                Root_addr->AllocationSize -= sizeof(XorLinkedCircularList);
             }
             else
             {
@@ -116,12 +139,14 @@ __declspec(dllexport) int __cdecl xlcl_pop(void *vp)
                 {
                     /*最後のノードのメモリ解放*/
                     free(Root_addr->Tail);
+                    Root_addr->AllocationSize -= sizeof(XorLinkedCircularList);
                     Root_addr->Tail = Root_addr->Head;
                 }
                 else /*1つのノードの場合*/
                 {
                     /*最後のノードのメモリ解放*/
                     free(Root_addr->Tail);
+                    Root_addr->AllocationSize -= sizeof(XorLinkedCircularList);
                     Root_addr->Tail = Root_addr->Head = NULL;
                 }
             }
@@ -130,11 +155,17 @@ __declspec(dllexport) int __cdecl xlcl_pop(void *vp)
     return ret;
 }
 
+
+
+/*----------------------------------*/
+/*XLCLのデータを標示する関数          */
+/*----------------------------------*/
 __declspec(dllexport) void __cdecl xlcl_all_show(void *vp)
 {
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
     if(Root_addr!=NULL)
     {
+        printf("AllocationSize:%d\n",Root_addr->AllocationSize);
         if(Root_addr->Head!=NULL)
         {
             XorLinkedCircularList *index = Root_addr->Head;
@@ -152,6 +183,11 @@ __declspec(dllexport) void __cdecl xlcl_all_show(void *vp)
     }
 }
 
+
+
+/*----------------------------------*/
+/*XLCLの使用を終了する関数            */
+/*----------------------------------*/
 __declspec(dllexport) void *__cdecl xlcl_end(void *vp)
 {
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
