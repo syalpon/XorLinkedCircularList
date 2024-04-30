@@ -14,7 +14,9 @@ typedef struct XorLinkedCircularList_Root_T
     XorLinkedCircularList *Head;
     XorLinkedCircularList *Tail;
     size_t AllocationSize;
+    unsigned int datanum;
 }XorLinkedCircularList_Root;
+
 
 
 /*----------------------------------*/
@@ -26,6 +28,35 @@ static void *AddrXor(void *p,void *q)
 }
 
 
+
+/*----------------------------------*/
+/* 指定ノードアドレスを返す関数        */
+/*----------------------------------*/
+static void *GetAddrXLCL(XorLinkedCircularList_Root *root,unsigned int index)
+{
+    XorLinkedCircularList *addr1 = root->Tail;
+    XorLinkedCircularList *addr2 = root->Head;
+    XorLinkedCircularList *xlxladdr;
+
+    /*index番目のデータを探索*/
+    if(root->datanum > index)
+    {
+        while( index-- )
+        {
+            xlxladdr = AddrXor(addr1,addr2->prev_xor_next);
+            addr1 = addr2;
+            addr2 = xlxladdr;
+        }
+    }
+    else
+    {
+        addr2 = NULL;
+    }
+    return addr2;
+}
+
+
+
 /*----------------------------------*/
 /*XorLinkedCircularListの使用開始関数*/
 /*----------------------------------*/
@@ -33,6 +64,8 @@ __declspec(dllexport) void *__cdecl xlcl_start(void)
 {
     XorLinkedCircularList_Root *xlclr_addr = malloc(sizeof(XorLinkedCircularList_Root));
     xlclr_addr->AllocationSize = sizeof(XorLinkedCircularList_Root);
+    xlclr_addr->datanum = 0; 
+
     if( xlclr_addr != NULL )
     {
         xlclr_addr->Head = NULL;
@@ -55,6 +88,8 @@ __declspec(dllexport) void *__cdecl xlcl_add_node(void *vp,int additional_data)
     {
         obtained_addr = malloc(sizeof(XorLinkedCircularList));
         Root_addr->AllocationSize += sizeof(XorLinkedCircularList);
+        (Root_addr->datanum)++;
+
         if(obtained_addr != NULL)
         {
             /*確保した領域にデータを格納*/
@@ -107,52 +142,139 @@ __declspec(dllexport) void *__cdecl xlcl_add_node(void *vp,int additional_data)
 
 
 /*----------------------------------*/
-/*XLCLから先頭のデータを取り出す関数   */
+/*XLCLからデータを取り出す関数        */
 /*----------------------------------*/
-__declspec(dllexport) int __cdecl xlcl_pop(void *vp)
+__declspec(dllexport) int __cdecl xlcl_pop(void *vp,unsigned int index,int *retdata)
 {
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
-    int ret = 0;
-    if(Root_addr != NULL)
+    int retvalue = 0;
+
+    if(Root_addr != NULL) /*NULLチェック*/
     {
-        if(Root_addr->Tail != NULL) /*1つ以上のノードがある場合*/
+        if( Root_addr->datanum != 0 )  /*1つ以上のノードがある場合*/
         {
-            ret = Root_addr->Tail->data;
+            XorLinkedCircularList *index_node_addr;
+            XorLinkedCircularList *index_node_nextaddr;
+            XorLinkedCircularList *index_node_prevaddr;
 
-            if(Root_addr->Tail->prev_xor_next != NULL) /*3つ以上のノードがある場合*/
+            /* index番目のデータを探索 */
+            index_node_addr = GetAddrXLCL(Root_addr,index);
+            if( index_node_addr != NULL )
             {
-                XorLinkedCircularList *head_next = AddrXor(Root_addr->Head->prev_xor_next,Root_addr->Tail);
-                XorLinkedCircularList *tail_prev = AddrXor(Root_addr->Tail->prev_xor_next,Root_addr->Head);
-                XorLinkedCircularList *tail_prev_prev = AddrXor(tail_prev->prev_xor_next,Root_addr->Tail);
-                XorLinkedCircularList *free_addr = Root_addr->Tail;
+                if( retdata != NULL )
+                {
+                    *retdata = index_node_addr->data;
+                }
+                else
+                {
+                    /*データは取得できるが、返値用バッファがない場合*/
+                    /* Do Nothing */
+                }
+                retvalue = 1;
 
-                /*最後のノードのメモリ解放*/
-                Root_addr->Tail = tail_prev;
-                Root_addr->Tail->prev_xor_next = AddrXor(tail_prev_prev,Root_addr->Head);
-                Root_addr->Head->prev_xor_next = AddrXor(Root_addr->Tail,head_next);
-                free(free_addr);
+                /* 削除処理 */
+                if( Root_addr->datanum == 1 ) /*ノードが1つのとき*/
+                {
+                    Root_addr->Head = NULL;
+                    Root_addr->Tail = NULL;
+                }
+                else /*ノードが2つ以上のとき*/
+                {
+                    /*更新用ポインタ：同時性が必要なため*/
+                    void *Root_Addr_Head_temp = Root_addr->Head;
+                    void *Root_Addr_Tail_temp = Root_addr->Tail;
+
+                    /*削除するノードの前のノードアドレスを取得*/
+                    if( index_node_addr == Root_addr->Head ) /*指定ノードがHEAD*/
+                    {
+                        index_node_prevaddr = Root_addr->Tail;
+                        Root_Addr_Head_temp = AddrXor(Root_addr->Head->prev_xor_next,index_node_prevaddr);
+                    }
+                    else
+                    {
+                        index_node_prevaddr = GetAddrXLCL(Root_addr,index-1);
+                    }
+
+                    /*削除するノードの次のノードアドレスを取得*/
+                    if( index_node_addr == Root_addr->Tail ) /*指定ノードがTAIL*/
+                    {
+                        index_node_nextaddr = Root_addr->Head;
+                        Root_Addr_Tail_temp = AddrXor(Root_addr->Tail->prev_xor_next,index_node_nextaddr);
+                    }
+                    else
+                    {
+                        index_node_nextaddr = GetAddrXLCL(Root_addr,index+1);
+                    }
+                    
+                    /*更新*/
+                    Root_addr->Head = Root_Addr_Head_temp;
+                    Root_addr->Tail = Root_Addr_Tail_temp;
+
+                    /*XorAddrの算出*/
+                    if( Root_addr->datanum >= 3 ) /*ノードが3つ以上のとき*/
+                    {
+                        /*更新用ポインタ：同時性が必要なため*/
+                        void *N_i_XorAddr;
+                        void *N_j_XorAddr;
+                        
+                        /* ①N_{i+1}->XorAddr = N_{i+2} ^ N_{i-1} */ 
+                        /* ②N_{i+2} = N_{i+1}->XorAddr ^ N_{i}   */
+                        /*  N_{i+1}->XorAddr = N_{i+1}->XorAddr ^ N_{i} ^ N_{i-1} */
+                        N_i_XorAddr = AddrXor(AddrXor(index_node_nextaddr->prev_xor_next,index_node_addr),index_node_prevaddr);
+                        /* ①N_{i-1}->XorAddr = N_{i-2} ^ N_{i+1} */ 
+                        /* ②N_{i-2} = N_{i-1}->XorAddr ^ N_{i}   */
+                        /*  N_{i-1}->XorAddr = N_{i-1}->XorAddr ^ N_{i} ^ N_{i+1} */
+                        N_j_XorAddr = AddrXor(AddrXor(index_node_prevaddr->prev_xor_next,index_node_addr),index_node_nextaddr);
+
+                        /*更新*/
+                        index_node_nextaddr->prev_xor_next = N_i_XorAddr;
+                        index_node_prevaddr->prev_xor_next = N_j_XorAddr;
+                    }
+                }
+
+                free(index_node_addr);
+                (Root_addr->datanum)--;
                 Root_addr->AllocationSize -= sizeof(XorLinkedCircularList);
             }
-            else
+            else /* Node is Nothing */
             {
-                if( Root_addr->Head != Root_addr->Tail ) /*2つのノードの場合*/
-                {
-                    /*最後のノードのメモリ解放*/
-                    free(Root_addr->Tail);
-                    Root_addr->AllocationSize -= sizeof(XorLinkedCircularList);
-                    Root_addr->Tail = Root_addr->Head;
-                }
-                else /*1つのノードの場合*/
-                {
-                    /*最後のノードのメモリ解放*/
-                    free(Root_addr->Tail);
-                    Root_addr->AllocationSize -= sizeof(XorLinkedCircularList);
-                    Root_addr->Tail = Root_addr->Head = NULL;
-                }
+                retvalue = 0;
             }
         }
+        else /* Node is Nothing */
+        {   
+            retdata = NULL;
+            retvalue = 0;
+        }
     }
-    return ret;
+    else /* NULL Access */
+    {  
+        retvalue = -1;
+    }
+
+    return retvalue; 
+}
+
+
+
+/*----------------------------------*/
+/*XLCLの先頭からデータを取り出す関数   */
+/*----------------------------------*/
+__declspec(dllexport) int __cdecl xlcl_get_head(void *vp,int *ret)
+{
+    XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
+    return xlcl_pop(Root_addr,0,ret);
+}
+
+
+
+/*----------------------------------*/
+/*XLCLの末尾からデータを取り出す関数   */
+/*----------------------------------*/
+__declspec(dllexport) int __cdecl xlcl_get_tail(void *vp,int *ret)
+{
+    XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
+    return xlcl_pop(Root_addr,Root_addr->datanum-1,ret);
 }
 
 
@@ -165,22 +287,26 @@ __declspec(dllexport) void __cdecl xlcl_all_show(void *vp)
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
     if(Root_addr!=NULL)
     {
-        printf("AllocationSize:%d\n",Root_addr->AllocationSize);
+        printf("--------infomation--------\n");
+        printf("AllocationSize:%d\ndatanum:%u\n",Root_addr->AllocationSize,Root_addr->datanum);
+        printf("HEAD:%p\nTAIL:%p\n",Root_addr->Head,Root_addr->Tail);
         if(Root_addr->Head!=NULL)
         {
             XorLinkedCircularList *index = Root_addr->Head;
             XorLinkedCircularList *index_prev = Root_addr->Tail;
+            printf(" [Address]:[ Data ]:[XorAddress] \n");
+            printf("0x%p:%7d :0x%p\n",index,index->data,index->prev_xor_next);
 
-            printf("%p:%d\n",index,index->data);
             while(index != Root_addr->Tail)
             {
                 XorLinkedCircularList *temp = index;
                 index = AddrXor(index_prev,index->prev_xor_next);
                 index_prev = temp;
-                printf("%p:%d\n",index,index->data);
+                printf("0x%p:%7d :0x%p\n",index,index->data,index->prev_xor_next);
             }
         }
     }
+    printf("\n");
 }
 
 
@@ -191,9 +317,13 @@ __declspec(dllexport) void __cdecl xlcl_all_show(void *vp)
 __declspec(dllexport) void *__cdecl xlcl_end(void *vp)
 {
     XorLinkedCircularList_Root *Root_addr = (XorLinkedCircularList_Root *)vp;
+
     if(Root_addr!=NULL)
     {
-        while(Root_addr->Head!=NULL) xlcl_pop(Root_addr);
+        while(Root_addr->Head!=NULL)
+        {
+            xlcl_get_tail(Root_addr,NULL);
+        } 
         free(Root_addr);
     }
     return NULL;
