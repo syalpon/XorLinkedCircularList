@@ -7,9 +7,20 @@
 
     __declspec(dllimport) void *__cdecl xlcl_start   (void);
     __declspec(dllimport) void *__cdecl xlcl_add_node(void *vp,int additional_data);
-    __declspec(dllimport) int   __cdecl xlcl_pop     (void *vp,unsigned int index,int *ret);
+
+
+    __declspec(dllimport) int   __cdecl xlcl_get     (void *vp,unsigned int index,int *ret);
     __declspec(dllimport) int   __cdecl xlcl_get_head(void *vp,int *ret);
     __declspec(dllimport) int   __cdecl xlcl_get_tail(void *vp,int *ret);
+
+    __declspec(dllimport) int   __cdecl xlcl_pop     (void *vp,unsigned int index,int *ret);
+    __declspec(dllimport) int   __cdecl xlcl_pop_head(void *vp,int *ret);
+    __declspec(dllimport) int   __cdecl xlcl_pop_tail(void *vp,int *ret);
+
+    __declspec(dllimport) int   __cdecl xlcl_del     (void *vp,unsigned int index,int *ret);
+    __declspec(dllimport) int   __cdecl xlcl_del_head(void *vp,int *ret);
+    __declspec(dllimport) int   __cdecl xlcl_del_tail(void *vp,int *ret);
+
     __declspec(dllimport) void  __cdecl xlcl_all_show(void *vp);
     __declspec(dllimport) void *__cdecl xlcl_end     (void *vp);
     
